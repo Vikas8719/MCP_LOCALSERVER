@@ -6,7 +6,7 @@ from fastmcp import FastMCP
 # -----------------------------
 mcp = FastMCP("ai-project-builder")
 
-DESKTOP = Path.home() / "OneDrive" / "Desktop"
+DESKTOP = Path("E:/projects") 
 
 def safe_path(base: Path, relative: str) -> Path:
     target = (base / relative).resolve()
