@@ -138,6 +138,77 @@ def write_file(project_folder: str, relative_path: str, content: str) -> str:
 
 
 @mcp.tool()
+def str_replace_in_file(
+    project_folder: str,
+    relative_path: str,
+    old_str: str,
+    new_str: str
+) -> str:
+    """
+    File ke andar sirf ek specific hissa badlo — poori file overwrite nahi hogi.
+    Claude Desktop ke str_replace tool jaisi kaam karta hai.
+
+    project_folder: project naam (jaise 'ai-engine')
+    relative_path:  file path project ke andar (jaise 'src/index.py')
+    old_str:        woh exact text jo replace karna hai (file mein exactly ek baar hona chahiye)
+    new_str:        naya text jo old_str ki jagah aayega (khali string se delete ho jaayega)
+
+    Rules:
+    - old_str file mein exactly ek baar milna chahiye, warna operation fail ho jaata hai.
+    - old_str aur new_str dono leading/trailing whitespace preserve karte hain.
+    - Agar old_str nahi mila to helpful error deta hai (first 200 chars of file dikhata hai for context).
+    """
+    base = PROJECTS_BASE / project_folder
+    if not base.exists():
+        available = [d.name for d in PROJECTS_BASE.iterdir() if d.is_dir()] if PROJECTS_BASE.exists() else []
+        return f"❌ Project '{project_folder}' nahi mila in {PROJECTS_BASE}\n💡 Available: {available}"
+
+    try:
+        file_path = safe_path(base, relative_path)
+    except ValueError as e:
+        return f"❌ {e}"
+
+    if not file_path.exists():
+        return f"❌ File nahi mili: {file_path}"
+    if file_path.is_dir():
+        return f"❌ Ye file nahi, folder hai."
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return f"❌ File binary/non-utf8 hai, text edit nahi ho sakti: {file_path}"
+
+    count = content.count(old_str)
+
+    if count == 0:
+        preview = content[:300].replace("\n", "↵")
+        return (
+            f"❌ old_str file mein nahi mila — koi change nahi hua.\n"
+            f"📄 File preview (first 300 chars):\n{preview}\n\n"
+            f"💡 Tips:\n"
+            f"  - Exact whitespace/indentation match karo\n"
+            f"  - read_file se content verify karo pehle\n"
+            f"  - Multiline text mein \\n newlines sahi hain?"
+        )
+
+    if count > 1:
+        return (
+            f"❌ old_str file mein {count} baar mila — ambiguous hai, koi change nahi hua.\n"
+            f"💡 Zyada unique text include karo (surrounding lines bhi) taaki exactly ek match ho."
+        )
+
+    new_content = content.replace(old_str, new_str, 1)
+    file_path.write_text(new_content, encoding="utf-8")
+
+    lines_changed = new_str.count("\n") - old_str.count("\n")
+    sign = "+" if lines_changed >= 0 else ""
+    return (
+        f"✅ str_replace successful: {file_path}\n"
+        f"📊 Lines changed: {sign}{lines_changed}"
+    )
+
+
+@mcp.tool()
 def delete_file(project_folder: str, relative_path: str) -> str:
     """
     Project ke andar se koi file delete karo.
